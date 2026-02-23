@@ -15,7 +15,7 @@ Es eignet sich ideal als Notfall-Backup oder für Nutzer, die ihre Wallet **ohne
 - ✅ 100 % clientseitig (HTML + JavaScript)  
 - ✅ Open Source & überprüfbar  
 
-> Der komplette Code läuft ausschließlich im Browser des Nutzers. Private Schlüssel verlassen niemals dein Gerät.
+Der komplette Code läuft ausschließlich im Browser des Nutzers. Private Schlüssel verlassen niemals dein Gerät.
 
 ---
 
@@ -33,7 +33,7 @@ Es eignet sich ideal als Notfall-Backup oder für Nutzer, die ihre Wallet **ohne
 
 Die Online-Demo ist hier erreichbar:
 
-➡️ [Bitcoin WIF Tool Online](https://dein-benutzername.github.io/bitcoin-wif-tool)
+➡️ [Bitcoin WIF Tool Online](https://bitgift-kevin-koch.github.io/bitgift-wif-tool/)
 
 ---
 
@@ -61,4 +61,4 @@ Dieses Tool wird **ohne Gewähr** bereitgestellt.
 
 Dieses Projekt steht unter der **MIT License**.  
 
-> Der Code darf geprüft, kopiert, verändert und selbst gehostet werden.
+Der Code darf geprüft, kopiert, verändert und selbst gehostet werden.
