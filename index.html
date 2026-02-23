@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self';
+  script-src 'self' 'unsafe-inline';
+  style-src 'self' 'unsafe-inline';
+  img-src 'self' data:;
+  connect-src 'self' https://blockstream.info https://api.coingecko.com;
+  object-src 'none';
+  base-uri 'self';
+  form-action 'self';
+">
+<title>Bitcoin WIF Tool</title>
+<link rel="stylesheet" href="css/style.css">
+<script src="bitcoinjs.min.js" defer></script>
+
+<style>
+
+/* Main container */
+#btc-wif-box { background:#fff; color:#222; border-radius:20px; border:1px solid rgba(0,97,255,0.15); box-shadow:0 6px 20px rgba(0,97,255,0.08); padding:32px 28px; max-width:520px; margin:50px auto; font-family:"Inter",system-ui,sans-serif; }
+#btc-wif-tool { background:linear-gradient(135deg, rgba(0,97,255,0.03), rgba(96,239,255,0.03)); border:1px solid rgba(0,97,255,0.1); border-radius:16px; padding:24px; transition:box-shadow 0.3s ease, border-color 0.3s ease; }
+/*#btc-wif-tool:hover { border-color: rgba(0,97,255,0.3); box-shadow: 0 4px 18px rgba(0,97,255,0.12); }*/
+
+#btc-wif-tool h3 { font-size:1.5rem; margin-bottom:16px; font-weight:600; background:linear-gradient(90deg,#0061ff,#60efff); -webkit-background-clip:text; -webkit-text-fill-color:transparent; }
+#btc-wif-tool h4 { font-size:1.1rem; margin-bottom:14px; font-weight:500; color:#222; }
+
+#btc-wif-tool label { color:#333; font-weight:400; font-size:1rem; margin-bottom:6px; display:block; }
+#btc-wif-tool input, #btc-wif-tool select { background:#f9f9ff; color:#111; border:1px solid rgba(0,97,255,0.25); border-radius:10px; padding:10px 12px; width:100%; font-size:1rem; margin-bottom:14px; transition:border-color 0.2s ease, box-shadow 0.2s ease; }
+#btc-wif-tool input:focus, #btc-wif-tool select:focus { outline:none; border-color:#60efff; box-shadow:0 0 6px rgba(0,97,255,0.25); }
+
+#btc-wif-tool select { appearance:none; background:#f9f9ff url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0l5 6 5-6H0z' fill='%23333'/%3E%3C/svg%3E") no-repeat right 12px center; background-size:10px 6px; padding-right:36px; }
+
+#btc-wif-tool .pass-wrapper { position:relative; margin-bottom:14px; }
+#btc-wif-tool .pass-wrapper input { width: calc(100% - 42px); margin-bottom: 0; padding-right: 12px; }
+#btc-wif-tool .pass-toggle { position:absolute; right:25px; top:50%; transform:translateY(-50%); border:none; background:#e6f0ff; cursor:pointer; width:26px; height:26px; padding:0; border-radius:50%; display:flex; align-items:center; justify-content:center; transition: background 0.2s ease; }
+#btc-wif-tool .pass-toggle:hover { background:#cce6ff; }
+
+.btcw-btn { background:linear-gradient(90deg,#0061ff,#60efff); border:none; color:#fff; padding:12px 40px; border-radius:9999px; cursor:pointer; font-weight:600; font-size:0.95rem; display:inline-flex; align-items:center; justify-content:center; box-shadow:0 4px 15px rgba(0,97,255,0.25); transition:filter 0.2s ease, box-shadow 0.2s ease; }
+.btcw-btn:hover:not(:disabled) { filter:brightness(1.05); box-shadow:0 6px 20px rgba(0,97,255,0.35); }
+
+#btc-msg { margin-top:14px; margin-bottom:8px; padding:12px 14px; border-radius:10px; font-size:0.95rem; display:none; }
+.btc-msg-error { background:#ffe9e9; border:1px solid #ffb3b3; color:#a00; }
+.btc-msg-success { background:#e9fdf3; border:1px solid #8be6b1; color:#0a7; }
+
+#btc-success-box { display:none; margin-top:18px; padding:14px; border-radius:12px; background:#e9fdf3; border:1px solid #8be6b1;}
+</style>
+</head>
+
+<body>
+<!-- ===============================================
+     BTC WIF TOOL
+     =============================================== -->
+<div id="btc-wif-box">
+  <div id="btc-wif-tool">
+
+    <h3>Bitcoin WIF Tool (Native SegWit)</h3>
+
+    <h4>WIF Private Key</h4>
+    <div class="pass-wrapper">
+      <input id="wif" type="password" placeholder="WIF Private Key">
+      <button type="button" class="pass-toggle" id="wif-pass-toggle" aria-label="Passwort anzeigen/ausblenden"></button>
+    </div>
+
+    <button class="btcw-btn btcw-btn-spacing" onclick="importWIF()">Importieren</button>
+    <div id="wallet_status" style="margin-top:10px; margin-bottom: 10px; font-weight:500; color:#0a7; display:none;">
+      Wallet verbunden
+    </div>
+
+    <div id="btc-msg"></div>
+
+    <p id="address_row" style="display:none">Adresse:<br><span id="address"></span></p>
+    <p id="balance_row" style="display:none">Balance:<br><span id="balance"></span> BTC (<span id="balance_eur"></span> €)</p>
+
+    <div id="send_box" style="display:none">
+      <hr style="margin:24px 0">
+      <h4>Bitcoin senden</h4>
+
+      <label>Empfänger Adresse</label>
+      <input id="to" placeholder="Bitcoin Adresse">
+
+      <label>Betrag</label>
+      <input id="amount" placeholder="BTC Betrag">
+
+      <p>Betrag:<br><span id="amount_display">–</span></p>
+      <p>Geschätzte Fee:<br><span id="fee_display">–</span></p>
+
+      <label>Priorität</label>
+      <select id="fee_option">
+        <option value="slow">Langsam</option>
+        <option value="standard" selected>Standard</option>
+        <option value="fast">Schnell</option>
+      </select>
+
+      <button class="btcw-btn" style="margin-top:16px" onclick="sendBTC()">Senden</button>
+
+      <div id="btc-success-box">
+        <b>Bitcoin erfolgreich gesendet!</b><br><br>
+
+        <b>TXID:</b><br>
+        <a id="txid" href="#" target="_blank"></a><br><br>
+
+        <b>Status:</b> <span id="tx_status">Broadcast...</span><br>
+        <b>Nächste Prüfung in:</b> <span id="tx_countdown">45</span> Sekunden<br><br>
+
+        <b>Empfänger:</b><br><span id="tx_to"></span><br><br>
+        <b>Betrag:</b><br><span id="tx_amount"></span><br><br>
+        <b>Fee:</b><br><span id="tx_fee"></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ===============================================
+   GLOBAL STATE VARIABLES
+   =============================================== */
+let currentKeyPair=null;
+let currentAddress=null;
+let btcPriceEur=0;
+let cachedUtxos=[];
+let feeRates={slow:8,standard:12,fast:18};
+
+/* ===============================================
+   INLINE MESSAGE HANDLER
+   =============================================== */
+function showMsg(text, type='error', duration=5000){
+  const box = document.getElementById('btc-msg');
+  box.className = type === 'success' ? 'btc-msg-success' : 'btc-msg-error';
+  box.innerText = text;
+  box.style.display = 'block';
+
+  // Hide after time
+  if(duration > 0){
+    setTimeout(() => {
+      box.style.display = 'none';
+    }, duration);
+  }
+}
+
+/* ===============================================
+   PASSWORD VISIBILITY TOGGLE
+   =============================================== */
+function initPassToggle(btn,input){
+  if(!btn||!input) return;
+  const eyeOpen=`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path d="M1 12C3.5 7 8 4 12 4s8.5 3 11 8c-2.5 5-7 8-11 8S3.5 17 1 12Z" fill="#555"/><circle cx="12" cy="12" r="3" fill="#fff"/><circle cx="12" cy="12" r="1.6" fill="#555"/></svg>`;
+  const eyeClosed=`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24"><path d="M1 12C3.5 7 8 4 12 4s8.5 3 11 8c-2.5 5-7 8-11 8S3.5 17 1 12Z" fill="#555"/><circle cx="12" cy="12" r="3" fill="#fff"/><circle cx="12" cy="12" r="1.6" fill="#555"/><path d="M4 4L20 20" stroke="#555" stroke-width="1.8" stroke-linecap="round"/></svg>`;
+  btn.innerHTML=eyeOpen;
+  btn.addEventListener('click',()=>{
+    const isPwd=input.type==='password';
+    input.type=isPwd?'text':'password';
+    btn.innerHTML=isPwd?eyeClosed:eyeOpen;
+  });
+}
+document.addEventListener('DOMContentLoaded',()=>{
+  initPassToggle(document.getElementById('wif-pass-toggle'),document.getElementById('wif'));
+});
+
+/* ===============================================
+   LOAD BTC PRICE & FEE RATES
+   =============================================== */
+async function loadBtcPrice(){ const r=await fetch("https://api.coingecko.com/api/v3/simple/price?ids=bitcoin&vs_currencies=eur"); btcPriceEur=(await r.json()).bitcoin.eur; }
+async function loadFeeRates(){ try{ const r=await fetch("https://blockstream.info/api/fee-estimates"); const d=await r.json(); let base=Math.ceil(d['3']||12); feeRates.standard=base; feeRates.slow=Math.max(1,Math.round(base*0.7)); feeRates.fast=Math.round(base*1.4); }catch(e){} }
+
+/* ===============================================
+   IMPORT WIF KEY
+   =============================================== */
+async function importWIF(){
+  try{
+    await loadBtcPrice(); await loadFeeRates();
+    const wif=document.getElementById("wif").value.trim();
+    currentKeyPair=bitcoinjs.ECPair.fromWIF(wif,bitcoinjs.networks.bitcoin);
+    document.getElementById("wif").value="";
+    const {address}=bitcoinjs.payments.p2wpkh({pubkey:currentKeyPair.publicKey,network:bitcoinjs.networks.bitcoin});
+    currentAddress=address;
+    document.getElementById("address").innerText=address;
+    document.getElementById("address_row").style.display="block";
+    document.getElementById("send_box").style.display="block";
+    await loadBalance(address); await loadUtxos(); updateAmountDisplay();
+    showMsg("Wallet erfolgreich importiert","success");
+    // Persistente Wallet-Verbindungsanzeige
+    const statusBox = document.getElementById("wallet_status");
+    if(statusBox){
+      statusBox.style.display = "block";
+    }
+  }catch(e){ showMsg("Ungültiger WIF Private Key"); }
+}
+
+/* ===============================================
+   LOAD BALANCE & UTXOS
+   =============================================== */
+async function loadBalance(addr){ const r=await fetch(`https://blockstream.info/api/address/${addr}`); const d=await r.json(); const btc=(d.chain_stats.funded_txo_sum-d.chain_stats.spent_txo_sum)/1e8; document.getElementById("balance_row").style.display="block"; document.getElementById("balance").innerText=btc.toFixed(8); document.getElementById("balance_eur").innerText=(btc*btcPriceEur).toFixed(2); }
+async function loadUtxos(){ const r=await fetch(`https://blockstream.info/api/address/${currentAddress}/utxo`); cachedUtxos=await r.json(); }
+
+/* ===============================================
+   FEE ESTIMATION
+   =============================================== */
+function estimateFee(inputs, outputs=2){ const rate=feeRates[document.getElementById("fee_option").value]; return (inputs*68+outputs*31+10)*rate; }
+
+/* ===============================================
+   LIVE AMOUNT DISPLAY
+   =============================================== */
+async function updateAmountDisplay(){
+  let val=document.getElementById("amount").value.replace(',','.');
+  let amount=parseFloat(val)||0;
+  document.getElementById("amount_display").innerText=`${amount.toFixed(8)} BTC (${(amount*btcPriceEur).toFixed(2)} €)`;
+  if(!currentAddress||amount<=0||!cachedUtxos.length) return;
+  let sum=0,i=0,fee=0;
+  while(sum<amount*1e8+fee&&i<cachedUtxos.length){ sum+=cachedUtxos[i].value;i++; fee=estimateFee(i); }
+  document.getElementById("fee_display").innerText=`${(fee/1e8).toFixed(8)} BTC (${((fee/1e8)*btcPriceEur).toFixed(2)} €)`;
+}
+document.getElementById("amount").addEventListener('input',updateAmountDisplay);
+document.getElementById("fee_option").addEventListener('change',updateAmountDisplay);
+
+/* ===============================================
+   SEND BITCOIN TRANSACTION + TX WATCHER
+   =============================================== */
+async function sendBTC(){
+  const to=document.getElementById("to").value.trim();
+  if(!bitcoinjs.address.toOutputScript) return showMsg("BitcoinJS nicht geladen");
+  try{ bitcoinjs.address.toOutputScript(to,bitcoinjs.networks.bitcoin); }catch(e){ return showMsg("Ungültige Bitcoin-Adresse"); }
+  let val=document.getElementById("amount").value.replace(',','.');
+  const amount=parseFloat(val); if(!amount||amount<=0) return showMsg("Ungültiger Betrag");
+  let psbt=new bitcoinjs.Psbt({network:bitcoinjs.networks.bitcoin});
+  let sum=0,i=0,fee=0;
+  while(sum<amount*1e8+fee&&i<cachedUtxos.length){
+    const u=cachedUtxos[i];
+    psbt.addInput({hash:u.txid,index:u.vout,witnessUtxo:{script:bitcoinjs.payments.p2wpkh({pubkey:currentKeyPair.publicKey}).output,value:u.value}});
+    sum+=u.value;i++; fee=estimateFee(i);
+  }
+  if(sum<amount*1e8+fee) return showMsg("Nicht genügend Guthaben");
+  psbt.addOutput({address:to,value:Math.floor(amount*1e8)});
+  const change=sum-Math.floor(amount*1e8)-fee; if(change>0) psbt.addOutput({address:currentAddress,value:change});
+  psbt.signAllInputs(currentKeyPair); psbt.finalizeAllInputs();
+  const tx=psbt.extractTransaction().toHex();
+  const res=await fetch("https://blockstream.info/api/tx",{method:"POST",body:tx});
+  if(!res.ok) return showMsg("Broadcast fehlgeschlagen: "+await res.text());
+  const txid=await res.text();
+  document.getElementById("btc-success-box").style.display="block";
+  document.getElementById("txid").innerText=txid;
+  document.getElementById("txid").href="https://blockstream.info/tx/"+txid;
+  document.getElementById("tx_to").innerText=to;
+  document.getElementById("tx_amount").innerText=`${amount.toFixed(8)} BTC (${(amount*btcPriceEur).toFixed(2)} €)`;
+  document.getElementById("tx_fee").innerText=`${(fee/1e8).toFixed(8)} BTC (${((fee/1e8)*btcPriceEur).toFixed(2)} €)`;
+  document.getElementById("to").value=""; document.getElementById("amount").value=""; document.getElementById("amount_display").innerText="–"; document.getElementById("fee_display").innerText="–";
+  startTxWatcher(txid);
+}
+
+/* ===============================================
+   TX WATCHER
+   =============================================== */
+let txCheckInterval=null;
+let txCountdownInterval=null;
+function startTxWatcher(txid){
+  let seconds = 45;
+  const txStatusEl = document.getElementById("tx_status");
+  const txCountdownEl = document.getElementById("tx_countdown");
+
+  txStatusEl.innerText = "Warte auf Bestätigung...";
+  txCountdownEl.innerText = seconds;
+
+  clearInterval(txCountdownInterval);
+  clearInterval(txCheckInterval);
+
+  // Countdown 
+  txCountdownInterval = setInterval(()=>{
+    seconds--;
+    if(seconds <= 0) seconds = 45;
+    txCountdownEl.innerText = seconds;
+  }, 1000);
+
+  // Check TX in time
+  txCheckInterval = setInterval(async () => {
+    try {
+      const r = await fetch(`https://blockstream.info/api/tx/${txid}`);
+      const d = await r.json();
+
+      if (d.status.confirmed) {
+        // TX confirmed – Balance & UTXOs refresh
+        txStatusEl.innerText = "Bestätigt";
+        await loadBalance(currentAddress);
+        await loadUtxos();
+
+        clearInterval(txCountdownInterval);
+        clearInterval(txCheckInterval);
+      } else {
+        // Not confirmed
+        txStatusEl.innerText = "0/1 Bestätigung – warte...";
+      }
+    } catch(e) {
+      console.error("Fehler beim Prüfen der TX:", e);
+    }
+  }, 45000); // all 45 seconds
+}
+</script>
+</body>
+</html>
+
+
+
